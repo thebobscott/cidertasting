@@ -15,14 +15,45 @@
   <!-- Babel for JSX transformation -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Your React component -->
-  <script type="text/babel" src="cider-scorecard.jsx"></script>
-  
-  <!-- Mount the app -->
+  <!-- Fetch and transpile cider-scorecard.jsx -->
   <script type="text/babel">
-    import App from './cider-scorecard.jsx';
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    (async () => {
+      try {
+        // Fetch the JSX file
+        const response = await fetch('./cider-scorecard.jsx');
+        const jsxCode = await response.text();
+        
+        // Create a blob URL for dynamic evaluation
+        const transformedCode = Babel.transform(jsxCode, {
+          presets: ['react'],
+          filename: 'cider-scorecard.jsx'
+        }).code;
+        
+        // Create a module-like scope
+        const moduleScope = {
+          module: { exports: {} },
+          require: (name) => {
+            if (name === 'react') return React;
+            if (name === 'react-dom') return ReactDOM;
+            throw new Error(`Cannot find module '${name}'`);
+          }
+        };
+        
+        // Execute the transformed code
+        const fn = new Function('module', 'React', 'ReactDOM', transformedCode);
+        fn(moduleScope.module, React, ReactDOM);
+        
+        // Get the default export
+        const App = moduleScope.module.exports.default;
+        
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+      } catch (error) {
+        console.error('Failed to load app:', error);
+        document.getElementById('root').innerHTML = `<div style="padding: 2rem; color: red; font-family: monospace;"><h2>Error Loading App</h2><pre>${error.message}</pre></div>`;
+      }
+    })();
   </script>
 </body>
 </html>
